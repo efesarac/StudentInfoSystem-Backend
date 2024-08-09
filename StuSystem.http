@@ -1,0 +1,6 @@
+@StuSystem_HostAddress = http://localhost:5100
+
+GET {{StuSystem_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
