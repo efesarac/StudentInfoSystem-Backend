@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StuSystem.Data;
+using StuSystem.DTOs;
 using StuSystem.Models;
 
 namespace StuSystem.Controllers
@@ -10,20 +12,24 @@ namespace StuSystem.Controllers
     public class CoursesController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IMapper _mapper;
 
-        public CoursesController(AppDbContext context)
+        public CoursesController(AppDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Course>>> GetCourses()
+        public async Task<ActionResult<IEnumerable<CourseDTO>>> GetCourses()
         {
-            return await _context.Courses.ToListAsync();
+            var courses = await _context.Courses.ToListAsync();
+            var courseDTOs = _mapper.Map<IEnumerable<CourseDTO>>(courses);
+            return Ok(courseDTOs);
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Course>> GetCourse(int id)
+        public async Task<ActionResult<CourseDTO>> GetCourse(int id)
         {
             var course = await _context.Courses.FindAsync(id);
 
@@ -32,17 +38,19 @@ namespace StuSystem.Controllers
                 return NotFound();
             }
 
-            return course;
+            var courseDTO = _mapper.Map<CourseDTO>(course);
+            return Ok(courseDTO);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutCourse(int id, Course course)
+        public async Task<IActionResult> PutCourse(int id, CourseDTO courseDTO)
         {
-            if (id != course.CourseId)
+            if (id != courseDTO.CourseId)
             {
                 return BadRequest();
             }
 
+            var course = _mapper.Map<Course>(courseDTO);
             _context.Entry(course).State = EntityState.Modified;
 
             try
@@ -65,14 +73,15 @@ namespace StuSystem.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<Course>> PostCourse(Course course)
+        public async Task<ActionResult<CourseDTO>> PostCourse(CourseDTO courseDTO)
         {
+            var course = _mapper.Map<Course>(courseDTO);
             _context.Courses.Add(course);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetCourse", new { id = course.CourseId }, course);
+            var createdCourseDTO = _mapper.Map<CourseDTO>(course);
+            return CreatedAtAction("GetCourse", new { id = course.CourseId }, createdCourseDTO);
         }
-
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCourse(int id)

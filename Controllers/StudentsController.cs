@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StuSystem.Data;
+using StuSystem.DTOs;
 using StuSystem.Models;
 
 namespace StuSystem.Controllers
@@ -10,43 +12,29 @@ namespace StuSystem.Controllers
     public class StudentsController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IMapper _mapper;
 
-        public StudentsController(AppDbContext context)
+        public StudentsController(AppDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
-
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Student>>> GetStudents()
+        public async Task<ActionResult<IEnumerable<StudentDTO>>> GetStudents()
         {
             var students = await _context.Students
                 .Include(s => s.StudentCourses)
                 .ThenInclude(sc => sc.Course)
                 .ToListAsync();
 
-            var result = students.Select(s => new
-            {
-                s.StudentId,
-                s.Name,
-                s.Email,
-                s.DateOfBirth,
-                s.EnrollmentDate,
-                StudentCourses = s.StudentCourses.Select(sc => new
-                {
-                    sc.CourseId,
-                    CourseName = sc.Course.Name,
-                    CourseCredits = sc.Course.Credits,
-                    CourseDescription = sc.Course.Description
-                }).ToList()
-            }).ToList();
+            var result = students.Select(student => _mapper.Map<StudentDTO>(student)).ToList();
 
             return Ok(result);
         }
 
-
         [HttpGet("{id}")]
-        public async Task<ActionResult> GetStudent(int id)
+        public async Task<ActionResult<StudentDTO>> GetStudent(int id)
         {
             var student = await _context.Students
                 .Include(s => s.StudentCourses)
@@ -58,34 +46,20 @@ namespace StuSystem.Controllers
                 return NotFound();
             }
 
-            var result = new
-            {
-                student.StudentId,
-                student.Name,
-                student.Email,
-                student.DateOfBirth,
-                student.EnrollmentDate,
-                StudentCourses = student.StudentCourses.Select(sc => new
-                {
-                    sc.CourseId,
-                    CourseName = sc.Course.Name,
-                    CourseCredits = sc.Course.Credits,
-                    CourseDescription = sc.Course.Description
-                }).ToList()
-            };
+            var result = _mapper.Map<StudentDTO>(student);
 
             return Ok(result);
         }
 
-
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutStudent(int id, Student student)
+        public async Task<IActionResult> PutStudent(int id, StudentDTO studentDto)
         {
-            if (id != student.StudentId)
+            if (id != studentDto.StudentId)
             {
                 return BadRequest();
             }
 
+            var student = _mapper.Map<Student>(studentDto);
             _context.Entry(student).State = EntityState.Modified;
 
             try
@@ -107,10 +81,11 @@ namespace StuSystem.Controllers
             return NoContent();
         }
 
-
         [HttpPost]
-        public async Task<ActionResult<Student>> PostStudent(Student student)
+        public async Task<ActionResult<StudentDTO>> PostStudent(StudentDTO studentDto)
         {
+            var student = _mapper.Map<Student>(studentDto);
+
             if (student.StudentCourses == null)
             {
                 student.StudentCourses = new List<StudentCourse>();
@@ -124,7 +99,8 @@ namespace StuSystem.Controllers
             _context.Students.Add(student);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetStudent", new { id = student.StudentId }, student);
+            var createdStudentDto = _mapper.Map<StudentDTO>(student);
+            return CreatedAtAction("GetStudent", new { id = student.StudentId }, createdStudentDto);
         }
 
         [HttpPost("{studentId}/courses/{courseId}")]
@@ -148,7 +124,6 @@ namespace StuSystem.Controllers
             return NoContent();
         }
 
-
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteStudent(int id)
         {
@@ -163,7 +138,6 @@ namespace StuSystem.Controllers
 
             return NoContent();
         }
-
 
         private bool StudentExists(int id)
         {
